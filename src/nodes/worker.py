@@ -106,15 +106,20 @@ class Worker:
             formatted_tool_results.append(item.to_string())
             formatted_tool_results.append("")
 
-        self.emit("progress_updated", message="Solving task")
+        self.emit("progress_updated", message="Researching task")
 
         result = self.solve(goal=goal, language=language, task=task, tool_results="\n".join(formatted_tool_results).strip())
+
+        formatted_outputs = []
+        for index, item in enumerate(tool_results, start=1):
+            formatted_outputs.append(f"[{item.url}]({item.url})\n")
 
         return TaskSolution(
             task=task,
             tool_name=tool_selection["tool"],
             tool_reason=tool_selection["reason"],
             tool_input=tool_selection["query"],
+            tool_outputs="".join(formatted_outputs).strip(),
             solution=result["solution"],
             summary=result["summary"])
 

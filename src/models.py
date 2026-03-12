@@ -33,6 +33,7 @@ class TaskSolution:
     tool_name: str
     tool_input: str
     tool_reason: str
+    tool_outputs: str
     solution: str
     summary: str
 
@@ -40,7 +41,7 @@ class TaskSolution:
         return asdict(self)
 
     def to_markdown(self) -> Markdown:
-        return Markdown(self.solution)
+        return Markdown(f"{self.solution}\n\n{self.tool_outputs}")
 
 @dataclass
 class SearchResult:

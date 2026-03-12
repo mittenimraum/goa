@@ -14,21 +14,18 @@ class Agent:
         self.goal = goal
         self.client = client
         self.console = Console()
+        self.planner = Planner(goal, client)
+        self.executor = Executor(client, on_event=self._handle_event)
         self.view = ProgressView(self)
-        self.executor = Executor(self.client, on_event=self._handle_event)
-        self.spinner_index = 0
         self.progress_message = "Waiting to start"
         self.task_status = {}
         self.plan = None
-        self.live = None
-        self.solutions = []
-        self.stop_spinner = False
 
     def run(self) -> None:
         self.console.print()
 
         with Live(self.view, console=self.console, refresh_per_second=8):
-            self.plan = Planner(self.goal, self.client).execute()
+            self.plan = self.planner.execute()
             self.solutions = self.executor.execute(self.plan)
 
         self.console.print()
