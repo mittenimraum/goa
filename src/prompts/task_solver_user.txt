@@ -1,4 +1,6 @@
 goal: {goal}
 task: {task}
 language: {language}
-tool results: {tool_results}
+tool results:
+
+{tool_results}

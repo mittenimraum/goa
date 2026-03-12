@@ -9,6 +9,6 @@ Input:
 
 Rules:
 
-- Use the provided context and optional search results to product a clear solution for the task
+- Use the provided context and optional tool results to product a clear solution for the task
 - Keep the solution concise and focused on the task
 - Produce a short summary of the solution

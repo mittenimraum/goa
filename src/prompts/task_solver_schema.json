@@ -4,7 +4,7 @@
   "properties": {
     "solution": {
       "type": "string",
-      "description": "The written solution for the task in the users language"
+      "description": "The written solution for the task in the users language and in markdown"
     },
     "summary": {
       "type": "string",

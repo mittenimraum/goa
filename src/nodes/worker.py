@@ -40,7 +40,7 @@ class Worker:
         )
 
         data = json.loads(response.output_text)
-        print(data)
+
         if data["tool"] not in ("web_search, none"):
             raise ValueError("Invalid tool selector output: unsupported tool")
 
@@ -80,17 +80,23 @@ class Worker:
 
     def run(self, goal: str, language: str, task: Task):
         tool_selection = self.select_tool(goal=goal, language=language, task=task)
-        tool_results = ""
+        tool_results = []
 
         if tool_selection["tool"] == "web_search":
             query = tool_selection["query"].strip() or task.title
 
             try:
                 tool_results = web_search(query)
-            except SearchToolError:
-                tools_results = "Web search not available. Continue without external results."
+            except SearchToolError as exc:
+                print(f"{exc}")
 
-        result = self.solve(goal=goal, language=language, task=task, tool_results=tool_results)
+        formatted_tool_results = []
+        for index, item in enumerate(tool_results, start=1):
+            formatted_tool_results.append(f"Result: {index}")
+            formatted_tool_results.append(item.to_string())
+            formatted_tool_results.append("")
+
+        result = self.solve(goal=goal, language=language, task=task, tool_results="\n".join(formatted_tool_results).strip())
 
         return TaskSolution(
             tool_name=tool_selection["tool"],

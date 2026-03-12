@@ -38,3 +38,15 @@ class TaskSolution:
 
     def to_markdown(self) -> Markdown:
         return Markdown(self.solution)
+
+@dataclass
+class SearchResult:
+    title: str
+    url: str
+    snippet: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    def to_string(self) -> str:
+        return f"Title: {self.title}\nURL: {self.url}\nSnippet: {self.snippet}"
