@@ -1,1 +1,1 @@
-User goal: {goal}
+goal: {goal}
