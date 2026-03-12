@@ -3,6 +3,7 @@ import os
 
 from openai import OpenAI
 
+from events import Event
 from models import Task, TaskSolution
 from tools.search import SearchToolError, web_search
 from utils.prompt_loader import load_prompt, load_schema
@@ -14,9 +15,14 @@ ALLOWED_SEARCH_REASONS = {
 }
 
 class Worker:
-    def __init__(self, client: OpenAI) -> None:
+    def __init__(self, client: OpenAI, on_event=None) -> None:
         self.client = client
         self.model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+        self.on_event = on_event
+
+    def emit(self, event_type: str, **payload) -> None:
+        if self.on_event:
+            self.on_event(Event(type=event_type, payload=payload))
 
     def select_tool(self, goal: str, language: str, task: Task):
         prompt_system = load_prompt("task_tools_system.txt")
@@ -79,6 +85,8 @@ class Worker:
         return data
 
     def run(self, goal: str, language: str, task: Task):
+        self.emit("progress_updated", message="Checking tools use")
+
         tool_selection = self.select_tool(goal=goal, language=language, task=task)
         tool_results = []
 
@@ -86,6 +94,8 @@ class Worker:
             query = tool_selection["query"].strip() or task.title
 
             try:
+                self.emit("progress_updated", message="Doing web search")
+
                 tool_results = web_search(query)
             except SearchToolError as exc:
                 print(f"{exc}")
@@ -96,9 +106,12 @@ class Worker:
             formatted_tool_results.append(item.to_string())
             formatted_tool_results.append("")
 
+        self.emit("progress_updated", message="Solving task")
+
         result = self.solve(goal=goal, language=language, task=task, tool_results="\n".join(formatted_tool_results).strip())
 
         return TaskSolution(
+            task=task,
             tool_name=tool_selection["tool"],
             tool_reason=tool_selection["reason"],
             tool_input=tool_selection["query"],

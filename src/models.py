@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from rich.markdown import Markdown
 
@@ -8,6 +8,8 @@ from rich.markdown import Markdown
 class Task:
     id: int
     title: str
+    status: Optional[str]
+    error: Optional[str]
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -27,6 +29,7 @@ class Plan:
 
 @dataclass
 class TaskSolution:
+    task: Task
     tool_name: str
     tool_input: str
     tool_reason: str

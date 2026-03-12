@@ -37,7 +37,7 @@ class Planner:
         data = json.loads(response.output_text)
         language = data.get("language", "en")
         tasks = [
-            Task(id=id, title=item["title"])
+            Task(id=id, title=item["title"], status="todo", error=None)
             for id, item in enumerate(data["tasks"], start=1)
         ]
         return Plan(goal=self.goal, language=language, tasks=tasks)
