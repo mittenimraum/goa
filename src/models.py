@@ -54,3 +54,18 @@ class SearchResult:
 
     def to_string(self) -> str:
         return f"Title: {self.title}\nURL: {self.url}\nSnippet: {self.snippet}"
+
+@dataclass
+class TokenUsage:
+    input: int = 0
+    output: int = 0
+    total: int = 0
+
+    def to_string(self) -> str:
+        return f"in={self.input} out={self.output} total={self.input + self.output}"
+
+@dataclass
+class TokenUsageStats:
+    planner: TokenUsage = field(default_factory=TokenUsage)
+    task_solver: TokenUsage = field(default_factory=TokenUsage)
+    task_tools: TokenUsage = field(default_factory=TokenUsage)

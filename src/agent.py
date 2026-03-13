@@ -3,23 +3,40 @@ from openai import OpenAI
 from rich.console import Console
 from rich.live import Live
 
+from events import (
+    ExecutorCompleted,
+    LogEvent,
+    ProgressUpdated,
+    TaskCompleted,
+    TaskFailed,
+    TaskStarted,
+    TokensUpdated,
+)
+from models import TokenUsageStats
 from nodes.executor import Executor
 from nodes.planner import Planner
 from ui import ProgressView
+from utils.notification_center import NotificationCenter
+from utils.observability import format_log_event
 
 
 class Agent:
 
-    def __init__(self, goal: str, client: OpenAI):
+    def __init__(self, goal: str, client: OpenAI, verbose: bool = False):
         self.goal = goal
         self.client = client
+        self.verbose = verbose
         self.console = Console()
-        self.planner = Planner(goal, client)
-        self.executor = Executor(client, on_event=self._handle_event)
+        self.logger = NotificationCenter()
+        self.planner = Planner(goal, client, self.logger)
+        self.executor = Executor(client, self.logger)
         self.view = ProgressView(self)
+        self.token_usage = TokenUsageStats()
         self.progress_message = "Waiting to start"
         self.task_status = {}
         self.plan = None
+        self.log = []
+        self._register_event_handlers()
 
     def run(self) -> None:
         self.console.print()
@@ -37,16 +54,38 @@ class Agent:
             self.console.print(markdown)
             self.console.print()
 
+    def _register_event_handlers(self) -> None:
+        self.logger.subscribe(TaskStarted, self._on_task_started)
+        self.logger.subscribe(TaskCompleted, self._on_task_completed)
+        self.logger.subscribe(TaskFailed, self._on_task_failed)
+        self.logger.subscribe(ProgressUpdated, self._on_progress_updated)
+        self.logger.subscribe(ExecutorCompleted, self._on_executor_completed)
+        self.logger.subscribe(LogEvent, self._on_log_event)
+        self.logger.subscribe(TokensUpdated, self._on_tokens_updated)
 
-    def _handle_event(self, event) -> None:
-        if event.type == "task_started":
-            self.task_status[event.payload["task_id"]] = "running"
-        elif event.type == "task_completed":
-            self.task_status[event.payload["task_id"]] = "done"
-        elif event.type == "task_failed":
-            self.task_status[event.payload["task_id"]] = "failed"
-        elif event.type == "progress_updated":
-            self.progress_message = event.payload["message"]
-        elif event.type == "execution_finished":
-            self.progress_message = f"Finished. Succeeded: {event.payload['success_count']} Failed: {event.payload['failed_count']}"
-            self.solutions = event.payload["solutions"]
+    def _on_progress_updated(self, event: ProgressUpdated) -> None:
+        self.progress_message = event.message
+
+    def _on_task_started(self, event: TaskStarted) -> None:
+        self.task_status[event.task.id] = "running"
+
+    def _on_task_completed(self, event: TaskCompleted) -> None:
+        self.task_status[event.task.id] = "done"
+
+    def _on_task_failed(self, event: TaskFailed) -> None:
+        self.task_status[event.task.id] = "failed"
+
+    def _on_executor_completed(self, event: ExecutorCompleted) -> None:
+        self.progress_message = f"Finished. Succeeded: {event.success_count} Failed: {event.failed_count}"
+
+    def _on_log_event(self, event: LogEvent) -> None:
+        if self.verbose:
+            self.log.append(format_log_event(event))
+
+    def _on_tokens_updated(self, event: TokensUpdated) -> None:
+        if event.context == "plan":
+            self.token_usage.planner = event.usage
+        elif event.context == "task_solver":
+            self.token_usage.task_solver = event.usage
+        elif event.context == "task_tool":
+            self.token_usage.task_tools = event.usage

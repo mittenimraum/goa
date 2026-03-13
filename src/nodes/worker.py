@@ -3,9 +3,11 @@ import os
 
 from openai import OpenAI
 
-from events import Event
+from events import LogEvent, ProgressUpdated, TokensUpdated
 from models import Task, TaskSolution
 from tools.search import SearchToolError, web_search
+from utils.notification_center import NotificationCenter
+from utils.observability import extract_token_usage
 from utils.prompt_loader import load_prompt, load_schema
 
 ALLOWED_SEARCH_REASONS = {
@@ -15,19 +17,17 @@ ALLOWED_SEARCH_REASONS = {
 }
 
 class Worker:
-    def __init__(self, client: OpenAI, on_event=None) -> None:
-        self.client = client
+    def __init__(self, client: OpenAI, logger: NotificationCenter) -> None:
         self.model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-        self.on_event = on_event
-
-    def emit(self, event_type: str, **payload) -> None:
-        if self.on_event:
-            self.on_event(Event(type=event_type, payload=payload))
+        self.client = client
+        self.logger = logger
 
     def select_tool(self, goal: str, language: str, task: Task):
         prompt_system = load_prompt("task_tools_system.txt")
         prompt_user = load_prompt("task_tools_user.txt")
         prompt_schema = load_schema("task_tools_schema.json")
+
+        self.logger.emit(LogEvent(context="WORKER", message="Tool selection started"))
 
         response = self.client.responses.create(
             model=self.model,
@@ -45,7 +45,15 @@ class Worker:
             }
         )
 
+        tokens = extract_token_usage(response)
         data = json.loads(response.output_text)
+
+        self.logger.emit(TokensUpdated(context="task_tool", usage= tokens))
+        self.logger.emit(LogEvent(context="WORKER", message="Tool selection completed"))
+        self.logger.emit(LogEvent("TOKENS", message=tokens.to_string()))
+
+        if data["tool"] == "web_search" and data["reason"] not in ALLOWED_SEARCH_REASONS:
+            self.logger.emit(LogEvent(context="GUARDRAIL", message="overrode web_search to none because decision_reason did not justify external search"))
 
         if data["tool"] not in ("web_search, none"):
             raise ValueError("Invalid tool selector output: unsupported tool")
@@ -56,6 +64,8 @@ class Worker:
         prompt_system = load_prompt("task_solver_system.txt")
         prompt_user = load_prompt("task_solver_user.txt")
         prompt_schema = load_schema("task_solver_schema.json")
+
+        self.logger.emit(LogEvent(context="WORKER", message="Solver started"))
 
         response = self.client.responses.create(
             model=self.model,
@@ -77,7 +87,12 @@ class Worker:
             }
         )
 
+        tokens = extract_token_usage(response)
         data = json.loads(response.output_text)
+
+        self.logger.emit(TokensUpdated(context="task_solver", usage= tokens))
+        self.logger.emit(LogEvent(context="WORKER", message="Solver completed"))
+        self.logger.emit(LogEvent("TOKENS", message=tokens.to_string()))
 
         if "solution" not in data or "summary" not in data:
             raise ValueError("Invalid worker output: missing solution or summary")
@@ -85,7 +100,7 @@ class Worker:
         return data
 
     def run(self, goal: str, language: str, task: Task):
-        self.emit("progress_updated", message="Checking tools use")
+        self.logger.emit(ProgressUpdated("Checking tools use"))
 
         tool_selection = self.select_tool(goal=goal, language=language, task=task)
         tool_results = []
@@ -94,11 +109,13 @@ class Worker:
             query = tool_selection["query"].strip() or task.title
 
             try:
-                self.emit("progress_updated", message="Doing web search")
+                self.logger.emit(ProgressUpdated("Doing web search"))
 
                 tool_results = web_search(query)
+
+                self.logger.emit(LogEvent(context="TOOL", message="web_search ok"))
             except SearchToolError as exc:
-                print(f"{exc}")
+                self.logger.emit(LogEvent(context="TOOL", message=f"web_search failed {exc}"))
 
         formatted_tool_results = []
         for index, item in enumerate(tool_results, start=1):
@@ -106,7 +123,7 @@ class Worker:
             formatted_tool_results.append(item.to_string())
             formatted_tool_results.append("")
 
-        self.emit("progress_updated", message="Researching task")
+        self.logger.emit(ProgressUpdated("Researching task"))
 
         result = self.solve(goal=goal, language=language, task=task, tool_results="\n".join(formatted_tool_results).strip())
 
