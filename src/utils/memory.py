@@ -41,7 +41,7 @@ class WorkingMemory:
     def _trim_to_budget(self) -> None:
         trimmed = list(self.entries)
         while trimmed and self._size(trimmed) > self.max_bytes:
-            trimmed.pop()
+            trimmed.pop(0)
         self.entries = trimmed
 
     def as_text(self) -> str:

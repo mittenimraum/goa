@@ -15,7 +15,7 @@ def web_search(query: str, max_results: int = 3) -> list[SearchResult]:
         html = response.text
 
         if "anomaly-modal" in html or "challenge-form" in html:
-            raise SearchToolError("DuckDuckGo returned an anto bot challenge page")
+            raise SearchToolError("DuckDuckGo returned an anti bot challenge page")
 
         soup = BeautifulSoup(response.text, "html.parser")
         results = []

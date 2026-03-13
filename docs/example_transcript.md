@@ -17,8 +17,8 @@ Verbose mode additionally shows trace lines such as:
 [15:50:48] [PLANNER] Planning Completed
 [15:50:48] [TOKENS] in=161 out=60 total=221
 [15:50:48] [EXECUTOR] Starting execution of task 1
-[15:50:48] [WORKER] Tool selection started
-[15:50:49] [WORKER] Tool selection completed
+[15:50:48] [WORKER] Tool routing started
+[15:50:49] [WORKER] Tool decision: web_search (reason: needs_current_information)
 [15:50:49] [TOKENS] in=258 out=22 total=280
 [15:50:50] [TOOL] web_search ok
 [15:50:50] [WORKER] Solver started

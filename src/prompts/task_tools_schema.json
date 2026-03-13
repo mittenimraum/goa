@@ -20,7 +20,8 @@
         "needs_current_information",
         "needs_specific_comparison",
         "needs_external_reference"
-      ]
+      ],
+      "description": "The reason for the selected tool. Use general_knowledge for 'none'."
     }
   },
   "required": [

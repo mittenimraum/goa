@@ -66,7 +66,7 @@ class Worker:
         prompt_user = load_prompt("task_tools_user.txt")
         prompt_schema = load_schema("task_tools_schema.json")
 
-        self.logger.emit(LogEvent(context="WORKER", message="Tool selection started"))
+        self.logger.emit(LogEvent(context="WORKER", message="Tool routing started"))
 
         response = self.client.generate(
             input=[
@@ -79,16 +79,20 @@ class Worker:
 
         tokens = extract_token_usage(response)
         data = json.loads(response.output_text)
+        tool = data["tool"]
+        reason = data["reason"]
 
         self.logger.emit(TokensUpdated(context="task_tool", usage= tokens))
-        self.logger.emit(LogEvent(context="WORKER", message="Tool selection completed"))
+        self.logger.emit(LogEvent(context="WORKER", message=f"Tool decision: {tool} (reason: {reason})"))
         self.logger.emit(LogEvent("TOKENS", message=tokens.to_string()))
 
-        if data["tool"] == "web_search" and data["reason"] not in ALLOWED_SEARCH_REASONS:
-            self.logger.emit(LogEvent(context="GUARDRAIL", message="overrode web_search to none because decision_reason did not justify external search"))
-
-        if data["tool"] not in ("web_search, none"):
+        if tool not in ("web_search", "none"):
             raise ValueError("Invalid tool selector output: unsupported tool")
+
+        if tool == "web_search" and reason not in ALLOWED_SEARCH_REASONS:
+            self.logger.emit(LogEvent(context="GUARDRAIL", message="overrode web_search to none because decision_reason did not justify external search"))
+            data["tool"] = "none"
+            data["query"] = ""
 
         return data
 
