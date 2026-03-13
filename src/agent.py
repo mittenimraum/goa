@@ -68,13 +68,7 @@ class Agent:
             self.console.print("Token Usage\n-----------------------------------------------")
             self.console.print(self.token_usage.to_string())
 
-    def _register_event_handlers(self) -> None:
-        self.logger.on(ProgressUpdated, self._on_progress_updated)
-        self.logger.on(ExecutorStarted, self._on_executor_started)
-        self.logger.on(ExecutorCompleted, self._on_executor_completed)
-        self.logger.on(LogEvent, self._on_log_event)
-        self.logger.on(TokensUpdated, self._on_tokens_updated)
-        self.logger.on(TaskCompleted, self._on_task_completed)
+    # State
 
     def _write_state(self):
         self.state.write(State(
@@ -83,6 +77,16 @@ class Agent:
             working_memory=self.memory.to_list(),
             token_usage_stats=self.token_usage,
             tasks=self.plan.tasks if self.plan else None))
+
+    # Events
+
+    def _register_event_handlers(self) -> None:
+        self.logger.on(ProgressUpdated, self._on_progress_updated)
+        self.logger.on(ExecutorStarted, self._on_executor_started)
+        self.logger.on(ExecutorCompleted, self._on_executor_completed)
+        self.logger.on(LogEvent, self._on_log_event)
+        self.logger.on(TokensUpdated, self._on_tokens_updated)
+        self.logger.on(TaskCompleted, self._on_task_completed)
 
     def _on_progress_updated(self, event: ProgressUpdated) -> None:
         self.progress_message = event.message

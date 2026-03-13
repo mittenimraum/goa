@@ -1,5 +1,4 @@
 import json
-import os
 
 from events import LogEvent, ProgressUpdated, TokensUpdated
 from models import Task, TaskSolution
@@ -16,7 +15,6 @@ ALLOWED_SEARCH_REASONS = {
 
 class Worker:
     def __init__(self, client: Client, logger: EventBus) -> None:
-        self.model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
         self.client = client
         self.logger = logger
 
