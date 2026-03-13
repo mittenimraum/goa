@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Self
 
 from rich.markdown import Markdown
 
@@ -61,6 +61,11 @@ class TokenUsage:
     output: int = 0
     total: int = 0
 
+    def add(self, usage: Self) -> None:
+        self.input += usage.input
+        self.output += usage.output
+        self.total += usage.total
+
     def to_string(self) -> str:
         return f"in={self.input} out={self.output} total={self.input + self.output}"
 
@@ -69,3 +74,7 @@ class TokenUsageStats:
     planner: TokenUsage = field(default_factory=TokenUsage)
     task_solver: TokenUsage = field(default_factory=TokenUsage)
     task_tools: TokenUsage = field(default_factory=TokenUsage)
+    total: TokenUsage  = field(default_factory=TokenUsage)
+
+    def to_string(self) -> str:
+        return f"Planner     {self.planner.to_string()}\nTask Solver {self.task_solver.to_string()}\nTask Tool   {self.task_tools.to_string()}\n-----------------------------------------------\nTotal       {self.total.to_string()}"

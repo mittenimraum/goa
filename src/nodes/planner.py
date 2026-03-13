@@ -5,13 +5,13 @@ from openai import OpenAI
 
 from events import LogEvent, PlanCompleted, PlanStarted, TokensUpdated
 from models import Plan, Task
-from utils.notification_center import NotificationCenter
+from utils.event_bus import EventBus
 from utils.observability import extract_token_usage
 from utils.prompt_loader import load_prompt, load_schema
 
 
 class Planner:
-    def __init__(self, goal: str, client: OpenAI, logger: NotificationCenter) -> None:
+    def __init__(self, goal: str, client: OpenAI, logger: EventBus) -> None:
         self.goal = goal
         self.client = client
         self.logger = logger

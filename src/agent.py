@@ -16,7 +16,7 @@ from models import TokenUsageStats
 from nodes.executor import Executor
 from nodes.planner import Planner
 from ui import ProgressView
-from utils.notification_center import NotificationCenter
+from utils.event_bus import EventBus
 from utils.observability import format_log_event
 
 
@@ -27,7 +27,7 @@ class Agent:
         self.client = client
         self.verbose = verbose
         self.console = Console()
-        self.logger = NotificationCenter()
+        self.logger = EventBus()
         self.planner = Planner(goal, client, self.logger)
         self.executor = Executor(client, self.logger)
         self.view = ProgressView(self)
@@ -54,14 +54,25 @@ class Agent:
             self.console.print(markdown)
             self.console.print()
 
+        if self.verbose:
+            self.console.print()
+            self.console.rule("Run Summary")
+            self.console.print("")
+            self.console.print(f"Tasks executed: {len(self.plan.tasks)}")
+            self.console.print(f"Tasks succeeded: {sum(1 for t in self.plan.tasks if t.status == 'done')}")
+            self.console.print(f"Tasks failed: {sum(1 for t in self.plan.tasks if t.status == 'failed')}")
+            self.console.print()
+            self.console.print("Token Usage\n-----------------------------------------------")
+            self.console.print(self.token_usage.to_string())
+
     def _register_event_handlers(self) -> None:
-        self.logger.subscribe(TaskStarted, self._on_task_started)
-        self.logger.subscribe(TaskCompleted, self._on_task_completed)
-        self.logger.subscribe(TaskFailed, self._on_task_failed)
-        self.logger.subscribe(ProgressUpdated, self._on_progress_updated)
-        self.logger.subscribe(ExecutorCompleted, self._on_executor_completed)
-        self.logger.subscribe(LogEvent, self._on_log_event)
-        self.logger.subscribe(TokensUpdated, self._on_tokens_updated)
+        self.logger.on(TaskStarted, self._on_task_started)
+        self.logger.on(TaskCompleted, self._on_task_completed)
+        self.logger.on(TaskFailed, self._on_task_failed)
+        self.logger.on(ProgressUpdated, self._on_progress_updated)
+        self.logger.on(ExecutorCompleted, self._on_executor_completed)
+        self.logger.on(LogEvent, self._on_log_event)
+        self.logger.on(TokensUpdated, self._on_tokens_updated)
 
     def _on_progress_updated(self, event: ProgressUpdated) -> None:
         self.progress_message = event.message
@@ -83,9 +94,14 @@ class Agent:
             self.log.append(format_log_event(event))
 
     def _on_tokens_updated(self, event: TokensUpdated) -> None:
-        if event.context == "plan":
-            self.token_usage.planner = event.usage
-        elif event.context == "task_solver":
-            self.token_usage.task_solver = event.usage
-        elif event.context == "task_tool":
-            self.token_usage.task_tools = event.usage
+        match event.context:
+            case "plan":
+                self.token_usage.planner.add(event.usage)
+            case "task_solver":
+                self.token_usage.task_solver.add(event.usage)
+            case "task_tool":
+                self.token_usage.task_tools.add(event.usage)
+            case _:
+                raise ValueError(f"Unknown token context: {event.context}")
+
+        self.token_usage.total.add(event.usage)

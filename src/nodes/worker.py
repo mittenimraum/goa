@@ -6,7 +6,7 @@ from openai import OpenAI
 from events import LogEvent, ProgressUpdated, TokensUpdated
 from models import Task, TaskSolution
 from tools.search import SearchToolError, web_search
-from utils.notification_center import NotificationCenter
+from utils.event_bus import EventBus
 from utils.observability import extract_token_usage
 from utils.prompt_loader import load_prompt, load_schema
 
@@ -17,7 +17,7 @@ ALLOWED_SEARCH_REASONS = {
 }
 
 class Worker:
-    def __init__(self, client: OpenAI, logger: NotificationCenter) -> None:
+    def __init__(self, client: OpenAI, logger: EventBus) -> None:
         self.model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
         self.client = client
         self.logger = logger

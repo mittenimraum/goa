@@ -3,12 +3,12 @@ from typing import Any, Callable, TypeVar
 
 TEvent = TypeVar("TEvent")
 
-class NotificationCenter:
+class EventBus:
 
     def __init__(self):
         self._subscribers: dict[type[Any], list[Callable[[Any], None]]] = defaultdict(list)
 
-    def subscribe(self, event_type: type[TEvent], handler: Callable[[TEvent], None]):
+    def on(self, event_type: type[TEvent], handler: Callable[[TEvent], None]):
         self._subscribers[event_type].append(handler)
 
     def emit(self, event: Any):

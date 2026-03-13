@@ -11,11 +11,11 @@ from events import (
 )
 from models import Plan, TaskSolution
 from nodes.worker import Worker
-from utils.notification_center import NotificationCenter
+from utils.event_bus import EventBus
 
 
 class Executor:
-    def __init__(self, client: OpenAI, logger: NotificationCenter) -> None:
+    def __init__(self, client: OpenAI, logger: EventBus) -> None:
         self.client = client
         self.logger = logger
 
