@@ -1,5 +1,4 @@
 
-from openai import OpenAI
 
 from events import (
     ExecutorCompleted,
@@ -11,16 +10,15 @@ from events import (
 )
 from models import Plan, TaskSolution
 from nodes.worker import Worker
-from utils.event_bus import EventBus
+from protocols import Client, EventBus
 
 
 class Executor:
-    def __init__(self, client: OpenAI, logger: EventBus) -> None:
+    def __init__(self, client: Client, logger: EventBus) -> None:
         self.client = client
         self.logger = logger
 
     def execute(self, plan: Plan) -> list[TaskSolution]:
-
         solutions: list[TaskSolution] = []
 
         self.logger.emit(ProgressUpdated(f"Starting execution of {len(plan.tasks)} tasks"))
@@ -34,6 +32,7 @@ class Executor:
             self.logger.emit(LogEvent(context="EXECUTOR", message=f"Starting execution of task {index}"))
 
             try:
+                # Worker
                 worker = Worker(self.client, logger=self.logger)
                 solution = worker.run(goal=plan.goal, language=plan.language, task=task)
                 solutions.append(solution)

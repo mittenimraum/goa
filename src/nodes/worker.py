@@ -1,12 +1,10 @@
 import json
 import os
 
-from openai import OpenAI
-
 from events import LogEvent, ProgressUpdated, TokensUpdated
 from models import Task, TaskSolution
+from protocols import Client, EventBus
 from tools.search import SearchToolError, web_search
-from utils.event_bus import EventBus
 from utils.observability import extract_token_usage
 from utils.prompt_loader import load_prompt, load_schema
 
@@ -17,10 +15,53 @@ ALLOWED_SEARCH_REASONS = {
 }
 
 class Worker:
-    def __init__(self, client: OpenAI, logger: EventBus) -> None:
+    def __init__(self, client: Client, logger: EventBus) -> None:
         self.model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
         self.client = client
         self.logger = logger
+
+    def run(self, goal: str, language: str, task: Task):
+        self.logger.emit(ProgressUpdated("Checking tools use"))
+
+        # Tool Check
+        tool_selection = self.select_tool(goal=goal, language=language, task=task)
+        tool_results = []
+
+        if tool_selection["tool"] == "web_search":
+            query = tool_selection["query"].strip() or task.title
+
+            try:
+                self.logger.emit(ProgressUpdated("Doing web search"))
+                # Tool Use
+                tool_results = web_search(query)
+
+                self.logger.emit(LogEvent(context="TOOL", message="web_search ok"))
+            except SearchToolError as exc:
+                self.logger.emit(LogEvent(context="TOOL", message=f"web_search failed {exc}"))
+
+        formatted_tool_results = []
+        for index, item in enumerate(tool_results, start=1):
+            formatted_tool_results.append(f"Result: {index}")
+            formatted_tool_results.append(item.to_string())
+            formatted_tool_results.append("")
+
+        self.logger.emit(ProgressUpdated("Researching task"))
+
+        # Solver
+        result = self.solve(goal=goal, language=language, task=task, tool_results="\n".join(formatted_tool_results).strip())
+
+        formatted_outputs = []
+        for index, item in enumerate(tool_results, start=1):
+            formatted_outputs.append(f"[{item.url}]({item.url})\n")
+
+        return TaskSolution(
+            task=task,
+            tool_name=tool_selection["tool"],
+            tool_reason=tool_selection["reason"],
+            tool_input=tool_selection["query"],
+            tool_outputs="".join(formatted_outputs).strip(),
+            solution=result["solution"],
+            summary=result["summary"])
 
     def select_tool(self, goal: str, language: str, task: Task):
         prompt_system = load_prompt("task_tools_system.txt")
@@ -29,20 +70,13 @@ class Worker:
 
         self.logger.emit(LogEvent(context="WORKER", message="Tool selection started"))
 
-        response = self.client.responses.create(
-            model=self.model,
+        response = self.client.generate(
             input=[
                 {"role": "system", "content": prompt_system},
                 {"role": "user", "content": prompt_user.format(goal=goal, task=task.title, language=language)}
             ],
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "task_tools_output",
-                    "schema": prompt_schema,
-                    "strict": True
-                }
-            }
+            schema=prompt_schema,
+            schema_name="task_tools_output"
         )
 
         tokens = extract_token_usage(response)
@@ -67,8 +101,7 @@ class Worker:
 
         self.logger.emit(LogEvent(context="WORKER", message="Solver started"))
 
-        response = self.client.responses.create(
-            model=self.model,
+        response = self.client.generate(
             input=[
                 {"role": "system", "content": prompt_system},
                 {"role": "user", "content": prompt_user.format(
@@ -77,14 +110,8 @@ class Worker:
                     language=language,
                     tool_results=tool_results)}
             ],
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "task_tools_output",
-                    "schema": prompt_schema,
-                    "strict": True
-                }
-            }
+            schema=prompt_schema,
+            schema_name="task_solver_output"
         )
 
         tokens = extract_token_usage(response)
@@ -99,44 +126,5 @@ class Worker:
 
         return data
 
-    def run(self, goal: str, language: str, task: Task):
-        self.logger.emit(ProgressUpdated("Checking tools use"))
 
-        tool_selection = self.select_tool(goal=goal, language=language, task=task)
-        tool_results = []
-
-        if tool_selection["tool"] == "web_search":
-            query = tool_selection["query"].strip() or task.title
-
-            try:
-                self.logger.emit(ProgressUpdated("Doing web search"))
-
-                tool_results = web_search(query)
-
-                self.logger.emit(LogEvent(context="TOOL", message="web_search ok"))
-            except SearchToolError as exc:
-                self.logger.emit(LogEvent(context="TOOL", message=f"web_search failed {exc}"))
-
-        formatted_tool_results = []
-        for index, item in enumerate(tool_results, start=1):
-            formatted_tool_results.append(f"Result: {index}")
-            formatted_tool_results.append(item.to_string())
-            formatted_tool_results.append("")
-
-        self.logger.emit(ProgressUpdated("Researching task"))
-
-        result = self.solve(goal=goal, language=language, task=task, tool_results="\n".join(formatted_tool_results).strip())
-
-        formatted_outputs = []
-        for index, item in enumerate(tool_results, start=1):
-            formatted_outputs.append(f"[{item.url}]({item.url})\n")
-
-        return TaskSolution(
-            task=task,
-            tool_name=tool_selection["tool"],
-            tool_reason=tool_selection["reason"],
-            tool_input=tool_selection["query"],
-            tool_outputs="".join(formatted_outputs).strip(),
-            solution=result["solution"],
-            summary=result["summary"])
 

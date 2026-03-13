@@ -18,7 +18,7 @@ class ProgressView:
         lines.append(f"Goal: {self.agent.goal}\n")
         lines.append("Plan:")
         for task in self.agent.plan.tasks:
-            status = self.agent.task_status.get(task.id)
+            status = task.status
             if status == "done":
                 prefix = "✔"
             elif status == "running":
