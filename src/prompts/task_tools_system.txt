@@ -1,4 +1,4 @@
-You are deciding which tools should be used for a given task of a multi-step learning plan.
+You are deciding which tools should be used for a given task of a multi-step research plan.
 
 Goal:
 
@@ -6,8 +6,8 @@ Your goal is to determine whether external information is required.
 
 Input:
 
-- goal: The learning goal of the user
-- task: The current task of the learning plan
+- goal: The research goal of the user
+- task: The current task of the plan
 - language: The language of the user facing outputs
 
 Available Tools:

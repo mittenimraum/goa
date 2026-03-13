@@ -1,9 +1,9 @@
-You are solving a task in a multi-step learning plan.
+You are solving a task in a multi-step research plan.
 
 Input:
 
-- goal: The learning goal of the user
-- task: The current task of the learning plan
+- goal: The research goal of the user
+- task: The current task of the plan
 - language: The language of the user facing outputs
 - tool results: Optional tool results for more context
 

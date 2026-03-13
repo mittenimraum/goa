@@ -2,7 +2,7 @@ You are an expert in planning tasks.
 
 Input:
 
-- goal: The learning goal of the user
+- goal: The research goal of the user
 
 Rules:
 
