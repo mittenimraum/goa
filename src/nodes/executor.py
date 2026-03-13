@@ -2,6 +2,7 @@
 
 from events import (
     ExecutorCompleted,
+    ExecutorStarted,
     LogEvent,
     ProgressUpdated,
     TaskCompleted,
@@ -21,6 +22,7 @@ class Executor:
     def execute(self, plan: Plan) -> list[TaskSolution]:
         solutions: list[TaskSolution] = []
 
+        self.logger.emit(ExecutorStarted())
         self.logger.emit(ProgressUpdated(f"Starting execution of {len(plan.tasks)} tasks"))
         self.logger.emit(LogEvent(context="EXECUTOR", message=f"Starting work on {len(plan.tasks)} tasks"))
 
@@ -36,10 +38,9 @@ class Executor:
                 worker = Worker(self.client, logger=self.logger)
                 solution = worker.run(goal=plan.goal, language=plan.language, task=task)
                 solutions.append(solution)
-
                 task.status = "done"
 
-                self.logger.emit(TaskCompleted(task))
+                self.logger.emit(TaskCompleted(solution))
                 self.logger.emit(ProgressUpdated(f"Completed task {index}/{len(plan.tasks)}: {task.title}"))
             except Exception as exc:
                 task.status = "failed"

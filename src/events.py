@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from models import Plan, Task, TokenUsage
+from models import Plan, Task, TaskSolution, TokenUsage
 
 
 @dataclass
@@ -18,7 +18,7 @@ class TaskStarted:
 
 @dataclass
 class TaskCompleted:
-    task: Task
+    solution: TaskSolution
 
 @dataclass
 class TaskFailed:
@@ -33,6 +33,10 @@ class ProgressUpdated:
 class TokensUpdated:
     context: Literal["plan", "task_tool", "task_solver"]
     usage: TokenUsage
+
+@dataclass
+class ExecutorStarted:
+    pass
 
 @dataclass
 class ExecutorCompleted:

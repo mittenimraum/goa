@@ -4,17 +4,21 @@ from rich.live import Live
 
 from events import (
     ExecutorCompleted,
+    ExecutorStarted,
     LogEvent,
     ProgressUpdated,
+    TaskCompleted,
     TokensUpdated,
 )
-from models import TokenUsageStats
+from models import State, TokenUsageStats
 from nodes.executor import Executor
 from nodes.planner import Planner
 from protocols import Client
 from ui import ProgressView
 from utils.event_bus import EventBus
+from utils.memory import WorkingMemory
 from utils.observability import format_log_event
+from utils.state import StateStore
 
 
 class Agent:
@@ -27,6 +31,8 @@ class Agent:
         self.logger = EventBus()
         self.planner = Planner(goal, client, self.logger)
         self.executor = Executor(client, self.logger)
+        self.memory = WorkingMemory()
+        self.state = StateStore()
         self.view = ProgressView(self)
         self.token_usage = TokenUsageStats()
         self.plan = None
@@ -64,15 +70,32 @@ class Agent:
 
     def _register_event_handlers(self) -> None:
         self.logger.on(ProgressUpdated, self._on_progress_updated)
+        self.logger.on(ExecutorStarted, self._on_executor_started)
         self.logger.on(ExecutorCompleted, self._on_executor_completed)
         self.logger.on(LogEvent, self._on_log_event)
         self.logger.on(TokensUpdated, self._on_tokens_updated)
+        self.logger.on(TaskCompleted, self._on_task_completed)
+
+    def _write_state(self):
+        self.state.write(State(
+            goal=self.goal,
+            language=self.plan.language if self.plan else None,
+            working_memory=self.memory.to_list(),
+            token_usage_stats=self.token_usage,
+            tasks=self.plan.tasks if self.plan else None))
 
     def _on_progress_updated(self, event: ProgressUpdated) -> None:
         self.progress_message = event.message
 
+    def _on_task_completed(self, event: TaskCompleted) -> None:
+        self.memory.add(event.solution)
+
+    def _on_executor_started(self, event: ExecutorStarted) -> None:
+        self._write_state()
+
     def _on_executor_completed(self, event: ExecutorCompleted) -> None:
         self.progress_message = f"Finished. Succeeded: {event.success_count} Failed: {event.failed_count}"
+        self._write_state()
 
     def _on_log_event(self, event: LogEvent) -> None:
         if self.verbose:
